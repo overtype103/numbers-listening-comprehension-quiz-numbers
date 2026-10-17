@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Number Listening Quiz</title>
+<style>
+body{font-family:Calibri,sans-serif;background:#0b1020;color:#f5faff;margin:0;padding:20px;display:flex;justify-content:center;transition:background .3s,color .3s}
+body.light{background:#f0f0f0;color:#111}
+.container{width:95%;max-width:900px;background:#151b30;padding:2.5vw;border-radius:12px;border:1px solid #3b6cff;box-shadow:0 0 18px rgba(0,0,0,.5);transition:background .3s,border-color .3s}
+body.light .container{background:#fff;border-color:#888}
+h1{text-align:center;margin:0 0 10px;font-size:clamp(1.4rem,4vw,2.2rem)}
+button{cursor:pointer;border:none;border-radius:6px;padding:.6em 1em;font-size:clamp(.8rem,2.5vw,1rem);font-weight:600}
+.btn-play{background:#00c896;color:#001018}
+.btn-next{background:#3b6cff;color:#fff}
+.btn-check{background:#ffcc66;color:#201400}
+.btn-small{background:#444b63;color:#fff}
+body.light .btn-small{background:#ddd;color:#111}
+.progress-bar{width:100%;height:12px;background:#2a314d;border-radius:6px;overflow:hidden;margin:10px 0 20px}
+.progress-fill{height:100%;width:0;background:#3b6cff;transition:width .4s ease}
+.sentence{font-size:clamp(1rem,3.2vw,1.6rem);margin:16px 0 12px;line-height:1.5;min-height:48px;white-space:pre-wrap}
+.fade{opacity:0;transition:opacity .4s ease}
+.fade.show{opacity:1}
+.input-display{margin:10px 0;display:flex;align-items:center;gap:8px}
+.input-display input{flex:1;padding:8px 10px;border-radius:6px;border:1px solid #3b6cff;background:#0b1020;color:#f5faff;font-size:clamp(1rem,3vw,1.4rem)}
+body.light .input-display input{background:#fff;color:#111;border-color:#888}
+.numpad{display:grid;gap:8px;margin-bottom:12px}
+@media(orientation:portrait){.numpad{grid-template-columns:repeat(3,1fr)}}
+@media(orientation:landscape){.numpad{grid-template-columns:repeat(6,1fr)}}
+.numpad button{background:#1f2740;color:#f5faff;padding:1em 0;font-size:clamp(1rem,3vw,1.4rem)}
+body.light .numpad button{background:#e0e0e0;color:#111}
+.feedback{min-height:22px;margin-top:6px;font-weight:600}
+.feedback.correct{color:#00e6a8}
+.feedback.wrong{color:#ff6b8a}
+#summaryScreen{display:none;text-align:center;padding:40px}
+#summaryScreen h2{font-size:2rem;margin-bottom:10px}
+#summaryList{text-align:left;max-width:600px;margin:20px auto;line-height:1.6}
+.confetti{position:fixed;width:8px;height:8px;background:red;top:50%;left:50%;opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="container" id="quizContainer">
+<button class="btn-small" id="restartBtn" style="float:right;margin-left:10px">Restart</button>
+<button class="btn-small" id="themeToggle" style="float:right">Light/Dark</button>
+<h1>Number Listening Quiz</h1>
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+<div class="audio-controls">
+<button class="btn-play" id="playBtn">▶ Play audio</button>
+<audio id="audioPlayer"></audio>
+</div>
+<div id="fadeWrapper" class="fade">
+<div class="sentence" id="sentenceText"></div>
+</div>
+<div class="input-display">
+<label>Your number:</label>
+<input id="answerInput" type="text" readonly>
+<button class="btn-small" id="clearBtn">Clear</button>
+<button class="btn-small" id="backspaceBtn">⌫</button>
+</div>
+<div class="numpad" id="numpad"></div>
+
+<div style="margin-bottom:6px;display:flex;gap:10px">
+<button class="btn-small" id="prevBtn">Previous</button>
+<button class="btn-check" id="checkBtn">Check</button>
+<button class="btn-next" id="nextBtn">Next</button>
+</div>
+
+<div class="feedback" id="feedback"></div>
+<div class="answer-reveal" id="answerReveal"></div>
+<div class="score" id="scoreInfo">Score: 0 / 0</div>
+</div>
+
+<div id="summaryScreen"></div>
+
+<script>
+const pool=[
+{id:1,prompt:"My laptop battery lasts __ hours when I keep the brightness low.",answer:"12"},
+{id:2,prompt:"The new smartphone model has a ___‑megapixel camera.",answer:"108"},
+{id:3,prompt:"I bought a _‑terabyte external hard drive for backups.",answer:"2"},
+{id:4,prompt:"The meeting starts at 09:__, so I need to set up the projector early.",answer:"30"},
+{id:5,prompt:"His computer uses an _‑core processor for heavy tasks.",answer:"8"},
+{id:6,prompt:"The router supports speeds up to _ Gbps.",answer:"1"},
+{id:7,prompt:"I installed version 3._.2 of the application yesterday.",answer:"4"},
+{id:8,prompt:"The monitor refreshes at ___ Hz, which makes animations smoother.",answer:"144"},
+{id:9,prompt:"She uploaded __ photos to the cloud this morning.",answer:"25"},
+{id:10,prompt:"My phone has ___ GB of storage, but I’ve already used half of it.",answer:"128"},
+{id:11,prompt:"The presentation has __ slides, including the conclusion.",answer:"18"},
+{id:12,prompt:"The technician replaced the old ___‑watt power supply.",answer:"450"},
+{id:13,prompt:"I received _ notifications while the device was in my pocket.",answer:"3"},
+{id:14,prompt:"The Wi‑Fi signal dropped _ times during the video call.",answer:"4"},
+{id:15,prompt:"His smartwatch counts more than ____, steps every day.",answer:"10000"},
+{id:16,prompt:"The new graphics card requires _ power connectors.",answer:"2"},
+{id:17,prompt:"I scanned __ pages of the contract in less than a minute.",answer:"15"},
+{id:18,prompt:"The update took _ minutes to install on my tablet.",answer:"7"},
+{id:19,prompt:"My keyboard has _ programmable keys for shortcuts.",answer:"5"},
+{id:20,prompt:"The company bought __ new desktops for the office.",answer:"30"},
+{id:21,prompt:"The backup system runs automatically every __ hours.",answer:"24"},
+{id:22,prompt:"Her laptop weighs only 1._ kilograms, making it easy to carry.",answer:"2"},
+{id:23,prompt:"The camera can record in 4K at __ fps.",answer:"60"},
+{id:24,prompt:"I printed __ copies of the report for the meeting.",answer:"12"},
+{id:25,prompt:"The battery dropped from __% to 20% in just two hours.",answer:"80"},
+{id:26,prompt:"The server has __ GB of RAM to handle large datasets.",answer:"64"},
+{id:27,prompt:"The conference room has _ projectors and a smartboard.",answer:"2"},
+{id:28,prompt:"My phone charges from 0 to __% in just 20 minutes.",answer:"50"},
+{id:29,prompt:"The antivirus scanned __ files before finding the threat.",answer:"42"},
+{id:30,prompt:"The new model supports Wi‑Fi 6, which is __% faster than the previous version.",answer:"40"}
+];
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+let quizOrder=shuffle([...pool]).slice(0,10);
+let currentIndex=0;
+let score=0;
+let answered=false;
+let history=[];
+
+const sentenceText=document.getElementById("sentenceText");
+const audioPlayer=document.getElementById("audioPlayer");
+const playBtn=document.getElementById("playBtn");
+const answerInput=document.getElementById("answerInput");
+const feedback=document.getElementById("feedback");
+const answerReveal=document.getElementById("answerReveal");
+const clearBtn=document.getElementById("clearBtn");
+const backspaceBtn=document.getElementById("backspaceBtn");
+const checkBtn=document.getElementById("checkBtn");
+const nextBtn=document.getElementById("nextBtn");
+const prevBtn=document.getElementById("prevBtn");
+const numpad=document.getElementById("numpad");
+const scoreInfo=document.getElementById("scoreInfo");
+const progressFill=document.getElementById("progressFill");
+const fadeWrapper=document.getElementById("fadeWrapper");
+const quizContainer=document.getElementById("quizContainer");
+const summaryScreen=document.getElementById("summaryScreen");
+
+const numpadLayout=["7","8","9","4","5","6","1","2","3","0","00","000"];
+numpadLayout.forEach(label=>{
+const btn=document.createElement("button");
+btn.textContent=label;
+btn.onclick=()=>handleDigitInput(label);
+numpad.appendChild(btn);
+});
+
+let fillSlots=[];
+let currentDigitIndex=0;
+
+function buildSentenceTemplate(prompt,answer){
+const display=answer.replace(/[0-9]/g,"_");
+sentenceText.innerHTML=prompt.replace(/_+/g,display);
+fillSlots=[...display].map(ch=>({type:ch==="_"?"digit":"punct",char:ch}));
+}
+
+function renderSentence(){
+let out="";
+fillSlots.forEach((slot,i)=>{
+if(slot.type==="digit"&&slot.char==="_"){out+=i===currentDigitIndex?`<span class="active-blank">_</span>`:"_";}
+else out+=slot.char;
+});
+sentenceText.innerHTML=quizOrder[currentIndex].prompt.replace(/_+/,out);
+}
+
+function handleDigitInput(d){
+if(answered)return;
+if(currentDigitIndex>=fillSlots.length)return;
+while(fillSlots[currentDigitIndex]&&fillSlots[currentDigitIndex].type==="punct")currentDigitIndex++;
+if(currentDigitIndex>=fillSlots.length)return;
+fillSlots[currentDigitIndex].char=d;
+answerInput.value+=d;
+currentDigitIndex++;
+while(fillSlots[currentDigitIndex]&&fillSlots[currentDigitIndex].type==="punct")currentDigitIndex++;
+renderSentence();
+}
+
+function loadItem(i){
+fadeWrapper.classList.remove("show");
+setTimeout(()=>fadeWrapper.classList.add("show"),20);
+const item=quizOrder[i];
+buildSentenceTemplate(item.prompt,item.answer);
+renderSentence();
+audioPlayer.src=String(item.id).padStart(2,"0")+".mp3";
+answerInput.value="";
+feedback.textContent="";
+answerReveal.textContent="";
+answered=false;
+scoreInfo.textContent=`Score: ${score} / ${i}`;
+progressFill.style.width=(i/quizOrder.length)*100+"%";
+currentDigitIndex=0;
+
+if(history[i]){
+answerInput.value=history[i].input;
+answered=history[i].answered;
+if(answered){
+if(history[i].correct){
+feedback.textContent="Correct!";
+feedback.className="feedback correct";
+}else{
+feedback.textContent="Wrong.";
+feedback.className="feedback wrong";
+answerReveal.textContent=`Correct answer: ${item.answer}`;
+}
+}
+}
+}
+
+playBtn.onclick=()=>{audioPlayer.currentTime=0;audioPlayer.play();};
+
+clearBtn.onclick=()=>{
+if(answered)return;
+answerInput.value="";
+currentDigitIndex=0;
+buildSentenceTemplate(quizOrder[currentIndex].prompt,quizOrder[currentIndex].answer);
+renderSentence();
+};
+
+backspaceBtn.onclick=()=>{
+if(answered)return;
+let val=answerInput.value.replace(/[^0-9]/g,"");
+if(!val.length)return;
+val=val.slice(0,-1);
+answerInput.value=val;
+currentDigitIndex=val.length;
+buildSentenceTemplate(quizOrder[currentIndex].prompt,quizOrder[currentIndex].answer);
+for(let i=0;i<val.length;i++)fillSlots[i].char=val[i];
+renderSentence();
+};
+
+checkBtn.onclick=()=>{
+if(answered)return;
+const user=answerInput.value.replace(/[^0-9]/g,"");
+const correct=quizOrder[currentIndex].answer.replace(/[^0-9]/g,"");
+if(user===correct){
+feedback.textContent="Correct!";
+feedback.className="feedback correct";
+score++;
+}else{
+feedback.textContent="Wrong.";
+feedback.className="feedback wrong";
+answerReveal.textContent=`Correct answer: ${quizOrder[currentIndex].answer}`;
+}
+answered=true;
+history[currentIndex]={input:answerInput.value,answered:true,correct:user===correct};
+scoreInfo.textContent=`Score: ${score} / ${currentIndex+1}`;
+};
+
+nextBtn.onclick=()=>{
+if(currentIndex<quizOrder.length-1){
+currentIndex++;
+loadItem(currentIndex);
+}else finishQuiz();
+};
+
+prevBtn.onclick=()=>{
+if(currentIndex>0){
+currentIndex--;
+loadItem(currentIndex);
+}
+};
+
+function finishQuiz(){
+quizContainer.style.display="none";
+summaryScreen.style.display="block";
+let msg="",emoji="";
+if(score>=9){msg="Excellent!";emoji="🎉🔥";}
+else if(score>=7){msg="Great job!";emoji="😄👍";}
+else if(score>=5){msg="Not bad!";emoji="🙂";}
+else{msg="Keep practicing!";emoji="😬📚";}
+summaryScreen.innerHTML=`
+<h2>${score} / ${quizOrder.length} ${emoji}</h2>
+<h3>${msg}</h3>
+<div id="summaryList">
+${quizOrder.map(q=>`<div><strong>${q.prompt}</strong> → ${q.answer}</div>`).join("")}
+</div>
+<button class="btn-next" onclick="restartQuiz()">Restart Quiz</button>
+`;
+burstConfetti();
+}
+
+function burstConfetti(){
+for(let i=0;i<80;i++){
+const c=document.createElement("div");
+c.className="confetti";
+document.body.appendChild(c);
+const angle=Math.random()*360;
+const dist=80+Math.random()*120;
+const x=Math.cos(angle)*dist;
+const y=Math.sin(angle)*dist;
+c.style.background=`hsl(${Math.random()*360},100%,50%)`;
+c.animate([{transform:"translate(0,0)",opacity:1},{transform:`translate(${x}px,${y}px)`,opacity:0}],{duration:800+Math.random()*600,easing:"ease-out"});
+setTimeout(()=>c.remove(),1500);
+}
+}
+
+function restartQuiz(){
+quizOrder=shuffle([...pool]).slice(0,10);
+currentIndex=0;
+score=0;
+history=[];
+summaryScreen.style.display="none";
+quizContainer.style.display="block";
+loadItem(0);
+}
+
+const themeToggle=document.getElementById("themeToggle");
+if(localStorage.getItem("theme")==="light")document.body.classList.add("light");
+themeToggle.onclick=()=>{
+document.body.classList.toggle("light");
+localStorage.setItem("theme",document.body.classList.contains("light")?"light":"dark");
+};
+document.addEventListener("keydown", (e) => {
+    if (summaryScreen.style.display === "block") return;
+
+    if (!answered) {
+        if (e.key >= "0" && e.key <= "9") {
+            handleDigitInput(e.key);
+        }
+        if (e.key === "Backspace") {
+            backspaceBtn.click();
+        }
+        if (e.key === "Delete") {
+            clearBtn.click();
+        }
+    }
+
+    if (e.key === "Enter") {
+        if (!answered) checkBtn.click();
+        else nextBtn.click();
+    }
+
+    if (e.key === "ArrowRight") nextBtn.click();
+    if (e.key === "ArrowLeft") prevBtn.click();
+});
+
+loadItem(0);
+</script>
+</body>
+</html>
